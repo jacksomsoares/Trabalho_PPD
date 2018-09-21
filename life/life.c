@@ -14,7 +14,12 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <omp.h>
+
 typedef unsigned char cell_t; 
+double s1, s2, s3, s4;
+double f1, f2, f3, f4;
+double timeAdjacente = 0;
 
 cell_t ** allocate_board (int size) {
 	cell_t ** board = (cell_t **) malloc(sizeof(cell_t*)*size);
@@ -39,27 +44,33 @@ int adjacent_to (cell_t ** board, int size, int i, int j) {
 	int sk = (i>0) ? i-1 : i;
 	int ek = (i+1 < size) ? i+1 : i;
 	int sl = (j>0) ? j-1 : j;
-        int el = (j+1 < size) ? j+1 : j;
+	int el = (j+1 < size) ? j+1 : j;	
 
 	for (k=sk; k<=ek; k++)
 		for (l=sl; l<=el; l++)
 			count+=board[k][l];
 	count-=board[i][j];
-	
+
 	return count;
 }
 
 void play (cell_t ** board, cell_t ** newboard, int size) {
 	int	i, j, a;
 	/* for each cell, apply the rules of Life */
-	for (i=0; i<size; i++)
-		for (j=0; j<size; j++) {
+	
+	#pragma omp parallel num_threads(12)
+	{
+	#pragma omp for collapse(2) private(i, j, a) schedule(dynamic, size/12) nowait
+	for (i=0; i<size; i++){
+		for (j=0; j<size; j++) {			
 			a = adjacent_to (board, size, i, j);
 			if (a == 2) newboard[i][j] = board[i][j];
-			if (a == 3) newboard[i][j] = 1;
-			if (a < 2) newboard[i][j] = 0;
-			if (a > 3) newboard[i][j] = 0;
+			else if (a == 3) newboard[i][j] = 1;
+			else if (a < 2) newboard[i][j] = 0;
+			else if (a > 3) newboard[i][j] = 0;
 		}
+	}
+	}
 }
 
 /* print the life board */
@@ -79,10 +90,11 @@ void print (cell_t ** board, int size) {
 void read_file (FILE * f, cell_t ** board, int size) {
 	int	i, j;
 	char	*s = (char *) malloc(size+10);
-	char c;
+	//char c;
+	
 	for (j=0; j<size; j++) {
 		/* get a string */
-		fgets (s, size+10,f);
+		fgets (s, size+10,f);		
 		/* copy the string to the life board */
 		for (i=0; i<size; i++)
 		{
@@ -97,31 +109,45 @@ void read_file (FILE * f, cell_t ** board, int size) {
 int main () {
 	int size, steps;
 	FILE    *f;
-  f = stdin;
+  	f = stdin;
 	fscanf(f,"%d %d", &size, &steps);
-	cell_t ** prev = allocate_board (size);
+	cell_t ** prev = allocate_board (size);	
+	s1 = omp_get_wtime();
 	read_file (f, prev,size);
+	f1 = omp_get_wtime();
 	fclose(f);
 	cell_t ** next = allocate_board (size);
 	cell_t ** tmp;
-	int i,j;
+	int i;
 	#ifdef DEBUG
 	printf("Initial \n");
 	print(prev,size);
 	printf("----------\n");
 	#endif
 
+	s2 = omp_get_wtime();
+	omp_set_nested(1);
+	
 	for (i=0; i<steps; i++) {
 		play (prev,next,size);
-                #ifdef DEBUG
+		#ifdef DEBUG
 		printf("%d ----------\n", i);
 		print (next,size);
-		#endif
+		#endif		
 		tmp = next;
 		next = prev;
 		prev = tmp;
 	}
+	f2 = omp_get_wtime();
+	s3 = omp_get_wtime();
 	print (prev,size);
+	f3 = omp_get_wtime();
 	free_board(prev,size);
 	free_board(next,size);
+
+	printf("Tempo 1 - Leitura arquivo: %f\n", f1-s1);
+	printf("Tempo 2 - Funçao Play(): %f\n", f2-s2);
+	printf("Tempo 3 - Printar na tela resultado: %f\n", f3-s3);
+	
+	//printf("Tempo total acumulado função adjacente: %f\n", timeAdjacente);
 }
