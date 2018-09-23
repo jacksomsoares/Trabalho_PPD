@@ -19,7 +19,7 @@
 typedef unsigned char cell_t; 
 double s1, s2, s3, s4;
 double f1, f2, f3, f4;
-double timeAdjacente = 0;
+int numProcs;
 
 cell_t ** allocate_board (int size) {
 	cell_t ** board = (cell_t **) malloc(sizeof(cell_t*)*size);
@@ -58,9 +58,9 @@ void play (cell_t ** board, cell_t ** newboard, int size) {
 	int	i, j, a;
 	/* for each cell, apply the rules of Life */
 	
-	#pragma omp parallel num_threads(12)
+	#pragma omp parallel num_threads(numProcs)
 	{
-	#pragma omp for collapse(2) private(i, j, a) schedule(dynamic, size/12) nowait
+	#pragma omp for collapse(2) private(i, j, a) schedule(dynamic, (size)/numProcs) nowait
 	for (i=0; i<size; i++){
 		for (j=0; j<size; j++) {			
 			a = adjacent_to (board, size, i, j);
@@ -125,9 +125,10 @@ int main () {
 	printf("----------\n");
 	#endif
 
-	s2 = omp_get_wtime();
 	omp_set_nested(1);
-	
+	numProcs = omp_get_num_procs();
+	s2 = omp_get_wtime();
+
 	for (i=0; i<steps; i++) {
 		play (prev,next,size);
 		#ifdef DEBUG
