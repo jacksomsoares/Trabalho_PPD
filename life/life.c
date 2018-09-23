@@ -45,10 +45,11 @@ int adjacent_to (cell_t ** board, int size, int i, int j) {
 	int ek = (i+1 < size) ? i+1 : i;
 	int sl = (j>0) ? j-1 : j;
 	int el = (j+1 < size) ? j+1 : j;	
-
+	
 	for (k=sk; k<=ek; k++)
 		for (l=sl; l<=el; l++)
 			count+=board[k][l];
+
 	count-=board[i][j];
 
 	return count;
@@ -58,9 +59,9 @@ void play (cell_t ** board, cell_t ** newboard, int size) {
 	int	i, j, a;
 	/* for each cell, apply the rules of Life */
 	
-	#pragma omp parallel num_threads(12)
+	#pragma omp parallel num_threads(4)
 	{
-	#pragma omp for collapse(2) private(i, j, a) schedule(dynamic, size/12) nowait
+	#pragma omp for collapse(2) private(i, j, a) schedule(dynamic, (size)/4) nowait
 	for (i=0; i<size; i++){
 		for (j=0; j<size; j++) {			
 			a = adjacent_to (board, size, i, j);
@@ -125,9 +126,9 @@ int main () {
 	printf("----------\n");
 	#endif
 
-	s2 = omp_get_wtime();
-	omp_set_nested(1);
 	
+	omp_set_nested(1);
+	s2 = omp_get_wtime();
 	for (i=0; i<steps; i++) {
 		play (prev,next,size);
 		#ifdef DEBUG
@@ -145,9 +146,12 @@ int main () {
 	free_board(prev,size);
 	free_board(next,size);
 
-	printf("Tempo 1 - Leitura arquivo: %f\n", f1-s1);
-	printf("Tempo 2 - Funçao Play(): %f\n", f2-s2);
-	printf("Tempo 3 - Printar na tela resultado: %f\n", f3-s3);
+	double total = (f1-s1) + (f2-s2) + (f3-s3);
+
+	printf("Tempo 1 - Leitura arquivo: %f Percentual: %f%% \n", f1-s1, (f1-s1)/total);
+	printf("Tempo 2 - Funçao Play(): %f Percentual: %f%% \n", f2-s2, (f2-s2)/total);
+	printf("Tempo 3 - Printar na tela resultado: %f Percentual: %f%% \n", f3-s3, (f3-s3)/total);
 	
+
 	//printf("Tempo total acumulado função adjacente: %f\n", timeAdjacente);
 }
